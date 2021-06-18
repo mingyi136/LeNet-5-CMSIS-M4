@@ -1,0 +1,13 @@
+Generating weights file: code/weights.h
+Generating parameter file: code/parameter.h
+Generating file: code/main.cpp
+Layer: conv1, required memory: 2000, im2col buffer size: 2000
+Layer: conv2, required memory: 5000, im2col buffer size: 5000
+Layer: ip1, required memory: 1000, im2col buffer size: 5000
+Layer: ip2, required memory: 20, im2col buffer size: 5000
+Layer: conv1, required memory: 12304, buffer size: 12304
+Layer: pool1, required memory: 14400, buffer size: 14400
+Layer: conv2, required memory: 6080, buffer size: 14400
+Layer: pool2, required memory: 4000, buffer size: 14400
+Layer: ip1, required memory: 1300, buffer size: 14400
+Layer: ip2, required memory: 10, buffer size: 14400
