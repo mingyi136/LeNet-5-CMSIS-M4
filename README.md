@@ -1,5 +1,5 @@
 # LeNet-5-CMSIS-M4
-Implementation of LeNet-5 on STM32F446RE board with Arm Cortex-M4 core
+Implementation of Caffe LeNet-5 on STM32F446RE board with Arm Cortex-M4 core
 
 ## 0. Prerequisites
 ### Hardware
@@ -64,7 +64,7 @@ python nn_quantizer.py --model ../Model/lenet_train_test.prototxt --weights ../M
 1. code_gen.py: Gets the quantization parameters and network graph connectivity from previous step and generates the code consisting of NN function calls. Supported layers: convolution, innerproduct, pooling (max/average) and relu. It generates (a) weights.h (b) parameter.h: consisting of quantization ranges and (c) main.cpp: the network code.
 2. Run code_gen.py to generate code to run on Arm Cortex-M CPUs.
 ```
-python code_gen.py --model lenet_quantize.pkl --out_dir code
+python code_gen.py --model lenet_quantize.pkl --out_dir ../Code
 ```
 
 ### Convert MNIST Test Images into array format
@@ -76,12 +76,12 @@ python convert_image.py --image_dir ../Test_Dataset
 
 ### Build & Run the project via STM32CubeIDE
 1. Create a new project via STM32CubeIDE
-2. Select STM32F446RE board as component
+2. In Board Selector, select NUCLEO-F446RE for your Commercial Part No.
 3. Download CMSIS-NN & CMSIS-DSP package from https://github.com/ARM-software/CMSIS_5 and add them to our project
 4. Remember to include both DSP/Include and NN/Include dirs via `Project > Properties > C/C++ General > Paths and Symbols > Includes`
 5. Add NN/Source dir via `Project > Properties > C/C++ General > Paths and Symbols > Source Location`
-6. Click your project ioc, expand Timers, select TIM10, and click 'Activated' to activate the timer
-7. Copy content from **main.cpp** into main.c, and move **weights.h**, **parameter.h**, **input_x.h**, and **include.h** generated into Inc dir
+6. Click your project ioc, under Pinout & Configuration, expand Timers, select TIM10, and click 'Activated' to activate the timer
+7. Copy content from **main.cpp** into Core/Src/main.c, and move **weights.h**, **parameter.h**, **input_x.h**, and **include.h** generated into Core/Inc dir
 8. 'Build' and 'Run' the project to upload the program to NUCLEO-F446RE board
 9. To view the output message, open PuTTY terminal, click 'Serial', enter your Serial Line (ie: COM3) and Speed (ie: 115200), and click 'Open'
 10. Message such as classification result, inference cycle, accuracy will be displayed via PuTTY terminal.
