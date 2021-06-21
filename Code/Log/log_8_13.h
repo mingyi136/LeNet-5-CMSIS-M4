@@ -1,0 +1,14 @@
+DIGIT_IMG_DATA_961 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9875.jpg
+DIGIT_IMG_DATA_962 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9887.jpg
+DIGIT_IMG_DATA_963 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9892.jpg
+DIGIT_IMG_DATA_964 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9900.jpg
+DIGIT_IMG_DATA_965 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9910.jpg
+DIGIT_IMG_DATA_966 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9917.jpg
+DIGIT_IMG_DATA_967 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9920.jpg
+DIGIT_IMG_DATA_968 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9926.jpg
+DIGIT_IMG_DATA_969 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9934.jpg
+DIGIT_IMG_DATA_970 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9936.jpg
+DIGIT_IMG_DATA_971 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9959.jpg
+DIGIT_IMG_DATA_972 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9967.jpg
+DIGIT_IMG_DATA_973 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\998.jpg
+DIGIT_IMG_DATA_974 : C:/Users/User/Desktop/LeNet_5/Test_Dataset/8\9991.jpg

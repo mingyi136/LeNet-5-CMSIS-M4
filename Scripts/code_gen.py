@@ -110,6 +110,12 @@ def generate_parameters(caffe_model, file_name):
     for layer in caffe_model.conv_layer+caffe_model.ip_layer:
         f.write("#define "+layer.upper()+"_BIAS_LSHIFT " + str(caffe_model.bias_lshift[layer])+"\n")
         f.write("#define "+layer.upper()+"_OUT_RSHIFT " + str(caffe_model.act_rshift[layer])+"\n")
+
+    f.write('\n\
+#define  ARM_CM_DEMCR      (*(uint32_t *)0xE000EDFC)\n\
+#define  ARM_CM_DWT_CTRL   (*(uint32_t *)0xE0001000)\n\
+#define  ARM_CM_DWT_CYCCNT (*(uint32_t *)0xE0001004)\n\
+')
     f.close()
 
 def generate_weights(caffe_model,file_name):
@@ -160,29 +166,30 @@ def generate_header(file_name):
 #include <stdio.h>\n\
 #include <stdlib.h>\n\
 #include <math.h>\n\
-#include "mbed.h"\n\
+//#include "mbed.h"\n\
 #include "arm_math.h"\n\
 #include "parameter.h"\n\
 #include "weights.h"\n\
-#include "arm_nnfunctions.h"\n')
+#include "arm_nnfunctions.h"\n\
+#include "include_list.h"\n')
     f.close()
 
 def generate_buffers(caffe_model, file_name):
     f=open(file_name,'a')
     f.write("\n")
     for layer in caffe_model.conv_layer:
-        f.write("static q7_t "+layer+"_wt["+layer.upper()+"_IN_CH*"+layer.upper()+"_KER_DIM*"+\
+        f.write("static const q7_t "+layer+"_wt["+layer.upper()+"_IN_CH*"+layer.upper()+"_KER_DIM*"+\
                 layer.upper()+"_KER_DIM*"+layer.upper()+"_OUT_CH] = "+layer.upper()+"_WT;\n")
-        f.write("static q7_t "+layer+"_bias["+layer.upper()+"_OUT_CH] = "+layer.upper()+"_BIAS;\n\n")
+        f.write("static const q7_t "+layer+"_bias["+layer.upper()+"_OUT_CH] = "+layer.upper()+"_BIAS;\n\n")
     for layer in caffe_model.ip_layer:
-        f.write("static q7_t "+layer+"_wt["+layer.upper()+"_IN_DIM*"+layer.upper()+"_OUT_DIM] = "+\
+        f.write("static const q7_t "+layer+"_wt["+layer.upper()+"_IN_DIM*"+layer.upper()+"_OUT_DIM] = "+\
                 layer.upper()+"_WT;\n")
-        f.write("static q7_t "+layer+"_bias["+layer.upper()+"_OUT_DIM] = "+layer.upper()+"_BIAS;\n\n")
+        f.write("static const q7_t "+layer+"_bias["+layer.upper()+"_OUT_DIM] = "+layer.upper()+"_BIAS;\n\n")
 
     #Input buffer
     layer=caffe_model.data_layer
-    f.write("q7_t input_data["+layer.upper()+"_OUT_CH*"+layer.upper()+"_OUT_DIM*"+\
-            layer.upper()+"_OUT_DIM];\n")
+#    f.write("q7_t input_data["+layer.upper()+"_OUT_CH*"+layer.upper()+"_OUT_DIM*"+\
+#            layer.upper()+"_OUT_DIM];\n")
     #Output buffer
     layer_no=caffe_model.layer.index(caffe_model.accuracy_layer)
     last_minus1_layer=caffe_model.layer[layer_no-1]
@@ -227,9 +234,15 @@ def generate_buffers(caffe_model, file_name):
 def generate_globals(file_name):
     f=open(file_name,'a')
     f.write('\n\
-Serial pc(USBTX, USBRX);\n\
-Timer t;\n\
-int start_time, stop_time;\n\n\
+uint32_t start_time, stop_time, delta_time, avg_time;\n\
+uint64_t total_time=0;\n\
+int top_ind, k=0;\n\
+char buf[50];\n\
+int buf_len=0;\n\
+int correct = 0;\n\
+int record[10];\n\
+int pic_num = PIC_NUM;\n\
+int class = CLASS;\n\
 ')
     f.close()
 
@@ -242,27 +255,91 @@ def generate_main(caffe_model,file_name):
 int main () {\n\
   //TODO: Get input_data (images) from camera \n\
   //Add mean subtraction code here \n\
-  t.start();\n\
-  t.reset();\n\
-  start_time = t.read_us();\n\
-  run_nn();\n\
-  stop_time = t.read_us();\n\
-  t.stop();\n\
-  pc.printf("Final output: "); \n\
+  buf_len = sprintf(buf, "\\r\\n####  Start  ####\\r\\n\");\n\
+  HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+  for (int j=0;j<pic_num;j++)\n\
+  {\n\
+    buf_len = sprintf(buf, "\\r\\n## Picture %d ##\\r\\n", j+1);\n\
+    HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\n\
+    start_time = ARM_CM_DWT_CYCCNT;\n\
+    run_nn(j);\n\
+    stop_time  = ARM_CM_DWT_CYCCNT;\n\n\
+    delta_time = stop_time - start_time;\n\
+    total_time = total_time + delta_time;\n\
+    top_ind = get_top_prediction(output_data);\n\n\
 ')
+
     layer_no=caffe_model.layer.index(caffe_model.accuracy_layer)
     last_minus1_layer=caffe_model.layer[layer_no-1]
-    f.write('  for (int i=0;i<{};i++)\n'.format(caffe_model.layer_shape[last_minus1_layer][1]))
-    f.write('  {\n    pc.printf("%d ", output_data[i]);\n  }\n\
-  pc.printf("\\r\\n");\n\n\
+    f.write('    for (int i=0;i<{};i++)\n'.format(caffe_model.layer_shape[last_minus1_layer][1]))
+    f.write('\
+    {\n\
+      buf_len = sprintf(buf, "Class %d: %d\\r\\n", i, output_data[i]);\n\
+      HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+    }\n\n\
+    if (top_ind == class) {\n\
+      correct ++;\n\
+      buf_len = sprintf(buf, "\\r\\nTop Predict\\t: %d => Correct \\r\\n", top_ind);\n\
+      HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+    }\n\
+    else {\n\
+      record[k]=j+1;\n\
+      k++;\n\
+      buf_len = sprintf(buf, "\\r\\nTop Predict\\t: %d => Wrong \\r\\n", top_ind);\n\
+      HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+    }\n\n\
+    buf_len = sprintf(buf, "Start Cycle\\t: %lu \\r\\n",start_time);\n\
+    HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+    buf_len = sprintf(buf, "Stop Cycle\\t: %lu \\r\\n",stop_time);\n\
+    HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+    buf_len = sprintf(buf, "Inference Cycle\\t: %lu \\r\\n",delta_time);\n\
+    HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+  }\n\n\
+  buf_len = sprintf(buf, "\\r\\n####  Result  ####\\r\\n");\n\
+  HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+  avg_time = total_time/pic_num;\n\
+  buf_len = sprintf(buf, "\\r\\nAvg Cycle\\t: %lu \\r\\n",avg_time);\n\
+  HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+  buf_len = sprintf(buf, "Correct Num\\t: %d \\r\\n",correct);\n\
+  HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+  buf_len = sprintf(buf, "Total Picture\\t: %d \\r\\n",pic_num);\n\
+  HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+  buf_len = sprintf(buf, "Wrong Picture\\t: Picture ");\n\
+  HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\n\
+  for (int i=0;i<5;i++)\n\
+  {\n\
+    if (record[i]!=0){\n\
+      buf_len = sprintf(buf, "%d ", record[i]);\n\
+      HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\
+    }\n\
+  }\n\n\
+  buf_len = sprintf(buf, "\\r\\n############  End  ###############\\r\\n");\n\
+  HAL_UART_Transmit(&huart2, (uint8_t *)buf, buf_len, 100);\n\n\
   return 0;\n\
 }\n\
 ')
     f.close()
 
 def generate_network_code(caffe_model,file_name,profile=False):
+    layer_no=caffe_model.layer.index(caffe_model.accuracy_layer)
+    last_minus1_layer=caffe_model.layer[layer_no-1]
     f=open(file_name,'a')
-    f.write('\nvoid run_nn() {\n\n')
+    f.write('\n\
+int get_top_prediction(q7_t* predictions) {\n\
+  int max_ind = 0;\n\
+  int max_val = -128;\n\
+')
+    f.write('  for (int i=0;i<{};i++)'.format(caffe_model.layer_shape[last_minus1_layer][1]))
+    f.write(' {\n\
+    if(max_val < predictions[i]) {\n\
+      max_val = predictions[i];\n\
+      max_ind = i;\n\
+    }\n\
+  }\n\
+  return max_ind;\n\
+}\n\
+')
+    f.write('\nvoid run_nn(int j) {\n\n')
     f.write('  q7_t* buffer1 = scratch_buffer;\n')
     #find maximum layer size
     max_layer_size=0
@@ -275,8 +352,9 @@ def generate_network_code(caffe_model,file_name,profile=False):
         if max_layer_size < layer_size:
             max_layer_size = layer_size
     f.write('  q7_t* buffer2 = buffer1 + {};\n'.format(max_layer_size))
-    input_buffer='input_data'
+    input_buffer='input_data[j]'
     output_buffer='buffer1'
+    LAST_LAYER = ''
     if profile==True:
         f.write('  int time[{}];\n'.format(len(caffe_model.layer)-2))
         f.write('  t.reset();\n  t.start();\n')
@@ -316,7 +394,13 @@ def generate_network_code(caffe_model,file_name,profile=False):
                        LAYER+'_KER_DIM, '+LAYER+'_PADDING, '+LAYER+'_STRIDE, '+LAYER+'_OUT_DIM, col_buffer, '+\
                        output_buffer+');\n')
             elif caffe_model.layer_type[layer]=='innerproduct' or  caffe_model.layer_type[layer]=='14':
-                f.write('  arm_fully_connected_q7_opt('+input_buffer+', '+layer+'_wt, '+LAYER+'_IN_DIM, '+LAYER+\
+                if (output_buffer == 'output_data'):
+                    LAST_LAYER = LAYER
+                    f.write('  arm_fully_connected_q7('+input_buffer+', '+layer+'_wt, '+LAYER+'_IN_DIM, '+LAYER+\
+                        '_OUT_DIM, '+LAYER+'_BIAS_LSHIFT, '+LAYER+'_OUT_RSHIFT, '+layer+'_bias, '+\
+                        output_buffer+', (q15_t*)col_buffer);\n')
+                else:
+                    f.write('  arm_fully_connected_q7_opt('+input_buffer+', '+layer+'_wt, '+LAYER+'_IN_DIM, '+LAYER+\
                         '_OUT_DIM, '+LAYER+'_BIAS_LSHIFT, '+LAYER+'_OUT_RSHIFT, '+layer+'_bias, '+\
                         output_buffer+', (q15_t*)col_buffer);\n')
             if profile==True:
@@ -326,6 +410,8 @@ def generate_network_code(caffe_model,file_name,profile=False):
                 input_buffer='buffer2'
         if caffe_model.layer_type[layer]!='relu' and caffe_model.layer_type[layer]!='18':
             input_buffer,output_buffer=output_buffer,input_buffer #buffer1<->buffer2
+
+    f.write('  arm_softmax_q7('+output_buffer+', '+LAST_LAYER+'_OUT_DIM, '+output_buffer+');\n')
   
     if profile==True:
         f.write('  t.stop();\n')
