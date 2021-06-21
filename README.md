@@ -21,8 +21,8 @@ Implementation of Caffe LeNet-5 on STM32F446RE board with Arm Cortex-M4 core
 2. Trained LeNet-5 model: **Model/lenet_iter_10000.caffemodel**
 
 ### Dataset
-1. MNIST Dataset: http://yann.lecun.com/exdb/mnist/ (for training & testing purpose)
-2. MNIST Dataset in jpg format: https://github.com/teavanist/MNIST-JPG (for real classification purpose)
+1. MNIST Dataset in LMDB format: Dataset/mnist_test_lmdb & Dataset/mnist_train_lmdb (for training & testing purpose)
+2. MNIST Dataset in jpg format: https://github.com/teavanist/MNIST-JPG (for real classification purpose, please create and locate at Test_Dataset dir)
 
 ### Full Training
 (Optional) If you don't want to use the pre-trained LeNet-5 model
@@ -68,10 +68,10 @@ python code_gen.py --model lenet_quantize.pkl --out_dir ../Code
 ```
 
 ### Convert MNIST Test Images into array format
-1. convert_image.py: Get a group of MNIST images and convert them into signed-int8 format. All the images array will be categorized into different input_x.h files, whereby each input_x.h file contains a maximum of 80 images (due to memory limitation of NUCLEO-F446RE board).
-2. All the input_x.h files will be included into a include.h file, whereby user is allowed to comment / uncomment them such that only one input_x.h is included and uploaded to the board.
+1. convert_image.py: Get a group of MNIST images in jpg format and convert them into signed-int8 format. All the images array will be categorized into different input_x.h files, whereby each input_x.h file contains a maximum of 80 images (due to memory limitation of NUCLEO-F446RE board).
+2. All the input_x.h files will be included into a include_list.h file, whereby user is allowed to comment / uncomment them such that only one input_x.h is included and uploaded to the board.
 ```
-python convert_image.py --image_dir ../Test_Dataset
+python convert_image.py --image_dir ../Test_Dataset --out_dir ../Code
 ```
 
 ### Build & Run the project via STM32CubeIDE
@@ -81,7 +81,7 @@ python convert_image.py --image_dir ../Test_Dataset
 4. Remember to include both DSP/Include and NN/Include dirs via `Project > Properties > C/C++ General > Paths and Symbols > Includes`
 5. Add NN/Source dir via `Project > Properties > C/C++ General > Paths and Symbols > Source Location`
 6. Click your project ioc, under Pinout & Configuration, expand Timers, select TIM10, and click 'Activated' to activate the timer
-7. Copy content from **main.cpp** into Core/Src/main.c, and move **weights.h**, **parameter.h**, **input_x.h**, and **include.h** generated into Core/Inc dir
+7. Copy content from **main.cpp** into Core/Src/main.c, and move **weights.h**, **parameter.h**, **input_x.h**, and **include_list.h** generated into Core/Inc dir
 8. 'Build' and 'Run' the project to upload the program to NUCLEO-F446RE board
 9. To view the output message, open PuTTY terminal, click 'Serial', enter your Serial Line (ie: COM3) and Speed (ie: 115200), and click 'Open'
 10. Message such as classification result, inference cycle, accuracy will be displayed via PuTTY terminal.
